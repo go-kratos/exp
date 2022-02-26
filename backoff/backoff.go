@@ -61,10 +61,10 @@ type Exponential struct {
 // New new a Exponential backoff with default options.
 func New(opts ...Option) Strategy {
 	ex := &Exponential{
-		BaseDelay:  1.0 * time.Second,
+		BaseDelay:  150 * time.Millisecond,
+		MaxDelay:   15 * time.Second,
 		Multiplier: 1.6,
 		Jitter:     0.2,
-		MaxDelay:   120 * time.Second,
 	}
 	for _, o := range opts {
 		o(ex)
