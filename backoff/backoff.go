@@ -5,6 +5,9 @@ import (
 	"time"
 )
 
+// defaultBackoff is a backoff configuration with the default values.
+var defaultBackoff = New()
+
 // Option is backoff option.
 type Option func(*Exponential)
 
@@ -36,8 +39,7 @@ func WithJitter(j float64) Option {
 	}
 }
 
-// Strategy defines the methodology for backing off after a grpc connection
-// failure.
+// Strategy defines the methodology for backing off after a retry failure.
 type Strategy interface {
 	// Backoff returns the amount of time to wait before the next retry given
 	// the number of consecutive failures.
@@ -93,4 +95,10 @@ func (bc Exponential) Backoff(retries int) time.Duration {
 		return 0
 	}
 	return time.Duration(backoff)
+}
+
+// Backoff returns the amount of time to wait before the next retry given the
+// number of retries.
+func Backoff(retries int) time.Duration {
+	return defaultBackoff.Backoff(retries)
 }

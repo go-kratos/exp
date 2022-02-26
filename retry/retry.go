@@ -7,6 +7,9 @@ import (
 	"github.com/go-kratos/exp/backoff"
 )
 
+// defaultRetry is a backoff configuration with the default values.
+var defaultRetry = New()
+
 // Option is retry option.
 type Option func(*Retry)
 
@@ -77,4 +80,15 @@ func (r *Retry) Do(ctx context.Context, fn func(context.Context) error) error {
 		time.Sleep(r.backoff.Backoff(retries))
 	}
 	return err
+}
+
+// Do wraps func with a backoff to retry.
+func Do(ctx context.Context, fn func(context.Context) error) error {
+	return defaultRetry.Do(ctx, fn)
+}
+
+// Infinite wraps func with a backoff to retry.
+func Infinite(ctx context.Context, fn func(context.Context) error) error {
+	r := New(WithAttempts(-1))
+	return r.Do(ctx, fn)
 }
