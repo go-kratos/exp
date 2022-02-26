@@ -31,14 +31,13 @@ func TestRetry(t *testing.T) {
 		}
 	}
 	{
-		nr := New(WithRetryable(func(err error) bool {
-			return false
-		}))
 		n := 0
-		err := nr.Do(context.Background(), func(ctx context.Context) error {
+		err := Do(context.Background(), func(ctx context.Context) error {
 			n++
 			return errors.New("not retry")
-		})
+		}, WithRetryable(func(err error) bool {
+			return false
+		}))
 		if err == nil {
 			t.Log("should got an error")
 		}

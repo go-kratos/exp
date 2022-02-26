@@ -78,3 +78,9 @@ func (r *Retry) Do(ctx context.Context, fn func(context.Context) error) error {
 	}
 	return err
 }
+
+// Do wraps func with a backoff to retry.
+func Do(ctx context.Context, fn func(context.Context) error, opts ...Option) error {
+	r := New(opts...)
+	return r.Do(ctx, fn)
+}
