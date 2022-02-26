@@ -47,7 +47,7 @@ type Retry struct {
 // New new a retry with backoff.
 func New(opts ...Option) *Retry {
 	r := &Retry{
-		attempts:  3,
+		attempts:  2,
 		retryable: func(err error) bool { return true },
 		backoff:   backoff.New(),
 	}

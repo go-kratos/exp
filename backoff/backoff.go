@@ -14,28 +14,28 @@ type Option func(*Exponential)
 // WithBaseDelay with base delay duration.
 func WithBaseDelay(d time.Duration) Option {
 	return func(o *Exponential) {
-		o.BaseDelay = d
+		o.baseDelay = d
 	}
 }
 
 // WithMaxDelay with max delay duratioin.
 func WithMaxDelay(d time.Duration) Option {
 	return func(o *Exponential) {
-		o.MaxDelay = d
+		o.maxDelay = d
 	}
 }
 
 // WithMultiplier with multiplier factor.
 func WithMultiplier(m float64) Option {
 	return func(o *Exponential) {
-		o.Multiplier = m
+		o.multiplier = m
 	}
 }
 
 // WithJitter with jitter factor.
 func WithJitter(j float64) Option {
 	return func(o *Exponential) {
-		o.Jitter = j
+		o.jitter = j
 	}
 }
 
@@ -49,24 +49,24 @@ type Strategy interface {
 // Exponential implements exponential backoff algorithm as defined in
 // https://github.com/grpc/grpc/blob/master/doc/connection-backoff.md.
 type Exponential struct {
-	// BaseDelay is the amount of time to backoff after the first failure.
-	BaseDelay time.Duration
-	// Multiplier is the factor with which to multiply backoffs after a
+	// baseDelay is the amount of time to backoff after the first failure.
+	baseDelay time.Duration
+	// multiplier is the factor with which to multiply backoffs after a
 	// failed retry. Should ideally be greater than 1.
-	Multiplier float64
-	// Jitter is the factor with which backoffs are randomized.
-	Jitter float64
-	// MaxDelay is the upper bound of backoff delay.
-	MaxDelay time.Duration
+	multiplier float64
+	// jitter is the factor with which backoffs are randomized.
+	jitter float64
+	// maxDelay is the upper bound of backoff delay.
+	maxDelay time.Duration
 }
 
 // New new a Exponential backoff with default options.
 func New(opts ...Option) Strategy {
 	ex := &Exponential{
-		BaseDelay:  150 * time.Millisecond,
-		MaxDelay:   15 * time.Second,
-		Multiplier: 1.6,
-		Jitter:     0.2,
+		baseDelay:  100 * time.Millisecond,
+		maxDelay:   15 * time.Second,
+		multiplier: 1.6,
+		jitter:     0.2,
 	}
 	for _, o := range opts {
 		o(ex)
@@ -78,11 +78,11 @@ func New(opts ...Option) Strategy {
 // number of retries.
 func (bc Exponential) Backoff(retries int) time.Duration {
 	if retries == 0 {
-		return bc.BaseDelay
+		return bc.baseDelay
 	}
-	backoff, max := float64(bc.BaseDelay), float64(bc.MaxDelay)
+	backoff, max := float64(bc.baseDelay), float64(bc.maxDelay)
 	for backoff < max && retries > 0 {
-		backoff *= bc.Multiplier
+		backoff *= bc.multiplier
 		retries--
 	}
 	if backoff > max {
@@ -90,7 +90,7 @@ func (bc Exponential) Backoff(retries int) time.Duration {
 	}
 	// Randomize backoff delays so that if a cluster of requests start at
 	// the same time, they won't operate in lockstep.
-	backoff *= 1 + bc.Jitter*(rand.Float64()*2-1)
+	backoff *= 1 + bc.jitter*(rand.Float64()*2-1)
 	if backoff < 0 {
 		return 0
 	}
