@@ -32,12 +32,13 @@ func TestRetry(t *testing.T) {
 	}
 	{
 		n := 0
-		err := Do(context.Background(), func(ctx context.Context) error {
-			n++
-			return errors.New("not retry")
-		}, WithRetryable(func(err error) bool {
+		nr := New(WithRetryable(func(err error) bool {
 			return false
 		}))
+		err := nr.Do(context.Background(), func(ctx context.Context) error {
+			n++
+			return errors.New("not retry")
+		})
 		if err == nil {
 			t.Log("should got an error")
 		}
