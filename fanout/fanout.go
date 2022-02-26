@@ -83,7 +83,7 @@ func (c *Fanout) proc() {
 }
 
 func wrapFunc(f func(c context.Context)) (res func(context.Context)) {
-	res = func(ctx context.Context) {
+	return func(ctx context.Context) {
 		defer func() {
 			if r := recover(); r != nil {
 				buf := make([]byte, 64*1024)
@@ -93,7 +93,6 @@ func wrapFunc(f func(c context.Context)) (res func(context.Context)) {
 		}()
 		f(ctx)
 	}
-	return
 }
 
 // Do save a callback func.
