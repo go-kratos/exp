@@ -2,10 +2,9 @@ package metadata
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
-
-	"github.com/pkg/errors"
 )
 
 // MD is a mapping from metadata keys to values.
