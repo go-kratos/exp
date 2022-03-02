@@ -3,7 +3,7 @@ package pipeline
 import (
 	"context"
 	"errors"
-	"github.com/go-kratos/exp/internal/metadata"
+	"github.com/go-kratos/kratos/v2/metadata"
 	"github.com/go-kratos/kratos/v2/metrics"
 	"strconv"
 	"sync"
@@ -14,6 +14,9 @@ import (
 
 // ErrFull channel full error
 var ErrFull = errors.New("channel full")
+
+// mirrorKey
+const mirrorKey = "mirror"
 
 type message[T any] struct {
 	key   string
@@ -133,7 +136,8 @@ func (p *Pipeline[T]) Add(c context.Context, key string, value T) (err error) {
 
 func (p *Pipeline[T]) add(c context.Context, key string, value T) (ch chan *message[T], m *message[T]) {
 	shard := p.Split(key) % p.config.Worker
-	if metadata.String(c, metadata.Mirror) != "" {
+	serverContext, b := metadata.FromServerContext(c)
+	if b && serverContext.Get(mirrorKey) != "" {
 		ch = p.mirrorChans[shard]
 	} else {
 		ch = p.chans[shard]
@@ -190,7 +194,7 @@ func (p *Pipeline[T]) mergeProc(mirror bool, index int, ch <-chan *message[T]) {
 		if len(vals) > 0 {
 			ctx := context.Background()
 			if mirror {
-				ctx = metadata.NewContext(ctx, metadata.MD{metadata.Mirror: "1"})
+				ctx = metadata.NewServerContext(ctx, metadata.Metadata{mirrorKey: "1"})
 				name = "mirror_" + name
 			}
 			p.Do(ctx, index, vals)
