@@ -4,8 +4,6 @@ import (
 	"context"
 	"reflect"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestPairsMD(t *testing.T) {
@@ -71,27 +69,48 @@ func TestWithContext(t *testing.T) {
 func TestBool(t *testing.T) {
 	md := MD{RemoteIP: "127.0.0.1", Color: "red"}
 	mdcontext := NewContext(context.Background(), md)
-	assert.Equal(t, false, Bool(mdcontext, Mirror))
+	if Bool(mdcontext, Mirror) {
+		t.Errorf("expect mirror be false")
+		t.FailNow()
+	}
 
 	mdcontext = NewContext(context.Background(), MD{Mirror: true})
-	assert.Equal(t, true, Bool(mdcontext, Mirror))
+	if !Bool(mdcontext, Mirror) {
+		t.Errorf("expect mirror be true")
+		t.FailNow()
+	}
 
 	mdcontext = NewContext(context.Background(), MD{Mirror: "true"})
-	assert.Equal(t, true, Bool(mdcontext, Mirror))
+	if !Bool(mdcontext, Mirror) {
+		t.Errorf("expect mirror be true")
+		t.FailNow()
+	}
 
 	mdcontext = NewContext(context.Background(), MD{Mirror: "1"})
-	assert.Equal(t, true, Bool(mdcontext, Mirror))
+	if !Bool(mdcontext, Mirror) {
+		t.Errorf("expect mirror be true")
+		t.FailNow()
+	}
 
 	mdcontext = NewContext(context.Background(), MD{Mirror: "0"})
-	assert.Equal(t, false, Bool(mdcontext, Mirror))
+	if Bool(mdcontext, Mirror) {
+		t.Errorf("expect mirror be false")
+		t.FailNow()
+	}
 }
 func TestInt64(t *testing.T) {
 	mdcontext := NewContext(context.Background(), MD{Mid: int64(1)})
-	assert.Equal(t, int64(1), Int64(mdcontext, Mid))
+	if Int64(mdcontext, Mid) != int64(1) {
+		t.Errorf("expect mdcontext.Mid equal to 1")
+	}
 	mdcontext = NewContext(context.Background(), MD{Mid: int64(2)})
-	assert.NotEqual(t, int64(1), Int64(mdcontext, Mid))
+	if Int64(mdcontext, Mid) == int64(1) {
+		t.Errorf("expect mdcontext.Mid not equal to 1")
+	}
 	mdcontext = NewContext(context.Background(), MD{Mid: 10})
-	assert.NotEqual(t, int64(10), Int64(mdcontext, Mid))
+	if Int64(mdcontext, Mid) == int64(10) {
+		t.Errorf("expect mdcontext.Mid not equal to 10")
+	}
 }
 
 func TestRange(t *testing.T) {

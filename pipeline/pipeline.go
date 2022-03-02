@@ -11,9 +11,6 @@ import (
 // ErrFull channel full error
 var ErrFull = errors.New("channel full")
 
-// mirrorKey
-const mirrorKey = "mirror"
-
 type message[T any] struct {
 	key   string
 	value T
