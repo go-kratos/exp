@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"github.com/go-kratos/exp/internal/metadata"
 	"reflect"
 	"strconv"
 	"testing"
@@ -17,10 +18,8 @@ func TestPipeline(t *testing.T) {
 	}
 	var runs []recv[interface{}]
 	do := func(c context.Context, ch int, values map[string][]interface{}) {
-		serverContext, _ := metadata.FromServerContext(c)
-		mirror := serverContext.Get(mirrorKey)
 		runs = append(runs, recv[interface{}]{
-			mirror: mirror,
+			mirror: metadata.String(c, metadata.Mirror),
 			values: values,
 			ch:     ch,
 		})
@@ -38,7 +37,7 @@ func TestPipeline(t *testing.T) {
 	p.Add(context.Background(), "11", 3)
 	p.Add(context.Background(), "2", 3)
 	time.Sleep(time.Millisecond * 60)
-	mirrorCtx := metadata.NewServerContext(context.Background(), metadata.Metadata{mirrorKey: "1"})
+	mirrorCtx := metadata.NewContext(context.Background(), metadata.MD{metadata.Mirror: "1"})
 	p.Add(mirrorCtx, "2", 3)
 	time.Sleep(time.Millisecond * 60)
 	p.SyncAdd(mirrorCtx, "5", 5)

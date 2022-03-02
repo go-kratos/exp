@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"github.com/go-kratos/exp/internal/metadata"
 	"sync"
 	"time"
 )
@@ -98,8 +99,7 @@ func (p *Pipeline[T]) Add(c context.Context, key string, value T) (err error) {
 
 func (p *Pipeline[T]) add(c context.Context, key string, value T) (ch chan *message[T], m *message[T]) {
 	shard := p.Split(key) % p.opt.Worker
-	serverContext, b := metadata.FromServerContext(c)
-	if b && serverContext.Get(mirrorKey) != "" {
+	if metadata.String(c, metadata.Mirror) != "" {
 		ch = p.mirrorChans[shard]
 	} else {
 		ch = p.chans[shard]
@@ -155,7 +155,7 @@ func (p *Pipeline[T]) mergeProc(mirror bool, index int, ch <-chan *message[T]) {
 		if len(vals) > 0 {
 			ctx := context.Background()
 			if mirror {
-				ctx = metadata.NewServerContext(ctx, metadata.Metadata{mirrorKey: "1"})
+				ctx = metadata.NewContext(ctx, metadata.MD{metadata.Mirror: "1"})
 				name = "mirror_" + name
 			}
 			p.Do(ctx, index, vals)
