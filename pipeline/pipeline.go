@@ -3,13 +3,8 @@ package pipeline
 import (
 	"context"
 	"errors"
-	"github.com/go-kratos/kratos/v2/metadata"
-	"github.com/go-kratos/kratos/v2/metrics"
-	"strconv"
 	"sync"
 	"time"
-
-	xtime "github.com/go-kratos/exp/internal/time"
 )
 
 // ErrFull channel full error
@@ -25,70 +20,37 @@ type message[T any] struct {
 
 // Pipeline pipeline struct
 type Pipeline[T any] struct {
-	Do            func(c context.Context, index int, values map[string][]T)
-	Split         func(key string) int
-	chans         []chan *message[T]
-	mirrorChans   []chan *message[T]
-	config        *Config
-	wait          sync.WaitGroup
-	name          string
-	metricCount   metrics.Counter
-	metricChanLen metrics.Gauge
-}
-
-// Config Pipeline config
-type Config struct {
-	// MaxSize merge size
-	MaxSize int
-	// Interval merge interval
-	Interval xtime.Duration
-	// Buffer channel size
-	Buffer int
-	// Worker channel number
-	Worker int
-	// Name use for metrics
-	Name string
-	// MetricCount use for metrics
-	MetricCount metrics.Counter
-	// MetricChanLen use for metrics
-	MetricChanLen metrics.Gauge
-}
-
-func (c *Config) fix() {
-	if c.MaxSize <= 0 {
-		c.MaxSize = 1000
-	}
-	if c.Interval <= 0 {
-		c.Interval = xtime.Duration(time.Second)
-	}
-	if c.Buffer <= 0 {
-		c.Buffer = 1000
-	}
-	if c.Worker <= 0 {
-		c.Worker = 10
-	}
-	if c.Name == "" {
-		c.Name = "anonymous"
-	}
+	Do          func(c context.Context, index int, values map[string][]T)
+	Split       func(key string) int
+	chans       []chan *message[T]
+	mirrorChans []chan *message[T]
+	wait        sync.WaitGroup
+	name        string
+	opt         *options
 }
 
 // NewPipeline new pipline
-func NewPipeline[T any](config *Config) (res *Pipeline[T]) {
-	if config == nil {
-		config = &Config{}
+func NewPipeline[T any](opts ...Option) (res *Pipeline[T]) {
+	o := &options{
+		MaxSize:  1000,
+		Interval: time.Second,
+		Buffer:   1000,
+		Worker:   10,
+		Name:     "anonymous",
 	}
-	config.fix()
+	for _, opt := range opts {
+		opt(o)
+	}
+
 	res = &Pipeline[T]{
-		chans:         make([]chan *message[T], config.Worker),
-		mirrorChans:   make([]chan *message[T], config.Worker),
-		config:        config,
-		name:          config.Name,
-		metricCount:   config.MetricCount,
-		metricChanLen: config.MetricChanLen,
+		chans:       make([]chan *message[T], o.Worker),
+		mirrorChans: make([]chan *message[T], o.Worker),
+		name:        o.Name,
+		opt:         o,
 	}
-	for i := 0; i < config.Worker; i++ {
-		res.chans[i] = make(chan *message[T], config.Buffer)
-		res.mirrorChans[i] = make(chan *message[T], config.Buffer)
+	for i := 0; i < o.Worker; i++ {
+		res.chans[i] = make(chan *message[T], o.Buffer)
+		res.mirrorChans[i] = make(chan *message[T], o.Buffer)
 	}
 	return
 }
@@ -135,7 +97,7 @@ func (p *Pipeline[T]) Add(c context.Context, key string, value T) (err error) {
 }
 
 func (p *Pipeline[T]) add(c context.Context, key string, value T) (ch chan *message[T], m *message[T]) {
-	shard := p.Split(key) % p.config.Worker
+	shard := p.Split(key) % p.opt.Worker
 	serverContext, b := metadata.FromServerContext(c)
 	if b && serverContext.Get(mirrorKey) != "" {
 		ch = p.mirrorChans[shard]
@@ -162,16 +124,16 @@ func (p *Pipeline[T]) mergeProc(mirror bool, index int, ch <-chan *message[T]) {
 	defer p.wait.Done()
 	var (
 		m       *message[T]
-		vals    = make(map[string][]T, p.config.MaxSize)
+		vals    = make(map[string][]T, p.opt.MaxSize)
 		closed  bool
 		count   int
-		inteval = p.config.Interval
+		inteval = p.opt.Interval
 		timeout = false
 	)
 	if index > 0 {
-		inteval = xtime.Duration(int64(index) * (int64(p.config.Interval) / int64(p.config.Worker)))
+		inteval = time.Duration(int64(index) * (int64(p.opt.Interval) / int64(p.opt.Worker)))
 	}
-	timer := time.NewTimer(time.Duration(inteval))
+	timer := time.NewTimer(inteval)
 	defer timer.Stop()
 	for {
 		select {
@@ -182,7 +144,7 @@ func (p *Pipeline[T]) mergeProc(mirror bool, index int, ch <-chan *message[T]) {
 			}
 			count++
 			vals[m.key] = append(vals[m.key], m.value)
-			if count >= p.config.MaxSize {
+			if count >= p.opt.MaxSize {
 				break
 			}
 			continue
@@ -190,7 +152,6 @@ func (p *Pipeline[T]) mergeProc(mirror bool, index int, ch <-chan *message[T]) {
 			timeout = true
 		}
 		name := p.name
-		process := count
 		if len(vals) > 0 {
 			ctx := context.Background()
 			if mirror {
@@ -198,14 +159,8 @@ func (p *Pipeline[T]) mergeProc(mirror bool, index int, ch <-chan *message[T]) {
 				name = "mirror_" + name
 			}
 			p.Do(ctx, index, vals)
-			vals = make(map[string][]T, p.config.MaxSize)
+			vals = make(map[string][]T, p.opt.MaxSize)
 			count = 0
-		}
-		if p.metricChanLen != nil {
-			p.metricChanLen.With(name, strconv.Itoa(index)).Set(float64(len(ch)))
-		}
-		if p.metricCount != nil {
-			p.metricCount.With(name, strconv.Itoa(index)).Add(float64(process))
 		}
 		if closed {
 			return
@@ -214,6 +169,6 @@ func (p *Pipeline[T]) mergeProc(mirror bool, index int, ch <-chan *message[T]) {
 			<-timer.C
 			timeout = false
 		}
-		timer.Reset(time.Duration(p.config.Interval))
+		timer.Reset(time.Duration(p.opt.Interval))
 	}
 }

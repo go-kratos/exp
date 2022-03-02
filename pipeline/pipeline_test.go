@@ -2,8 +2,6 @@ package pipeline
 
 import (
 	"context"
-	xtime "github.com/go-kratos/exp/internal/time"
-	"github.com/go-kratos/kratos/v2/metadata"
 	"reflect"
 	"strconv"
 	"testing"
@@ -11,12 +9,7 @@ import (
 )
 
 func TestPipeline(t *testing.T) {
-	conf := &Config{
-		MaxSize:  3,
-		Interval: xtime.Duration(time.Millisecond * 20),
-		Buffer:   3,
-		Worker:   10,
-	}
+
 	type recv[T any] struct {
 		mirror string
 		ch     int
@@ -36,7 +29,7 @@ func TestPipeline(t *testing.T) {
 		n, _ := strconv.Atoi(s)
 		return n
 	}
-	p := NewPipeline[interface{}](conf)
+	p := NewPipeline[interface{}](WithMaxSize(3), WithBuffer(3), WithInterval(time.Millisecond*20), WithWorker(10))
 	p.Do = do
 	p.Split = split
 	p.Start()
@@ -88,12 +81,6 @@ func TestPipeline(t *testing.T) {
 }
 
 func TestPipelineSmooth(t *testing.T) {
-	conf := &Config{
-		MaxSize:  100,
-		Interval: xtime.Duration(time.Second),
-		Buffer:   100,
-		Worker:   10,
-	}
 	type result struct {
 		index int
 		ts    time.Time
@@ -109,7 +96,7 @@ func TestPipelineSmooth(t *testing.T) {
 		n, _ := strconv.Atoi(s)
 		return n
 	}
-	p := NewPipeline[interface{}](conf)
+	p := NewPipeline[interface{}](WithMaxSize(100), WithInterval(time.Second), WithBuffer(100), WithWorker(10))
 	p.Do = do
 	p.Split = split
 	p.Start()
@@ -117,7 +104,7 @@ func TestPipelineSmooth(t *testing.T) {
 		p.Add(context.Background(), strconv.Itoa(i), 1)
 	}
 	time.Sleep(time.Millisecond * 1500)
-	if len(results) != conf.Worker {
+	if len(results) != 10 {
 		t.Errorf("expect results equal worker")
 		t.FailNow()
 	}
