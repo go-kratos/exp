@@ -101,11 +101,11 @@ func (p *Pipeline[T]) Start() {
 	var mirror bool
 	p.wait.Add(len(p.chans) + len(p.mirrorChans))
 	for i, ch := range p.chans {
-		go p.mergeproc(mirror, i, ch)
+		go p.mergeProc(mirror, i, ch)
 	}
 	mirror = true
 	for i, ch := range p.mirrorChans {
-		go p.mergeproc(mirror, i, ch)
+		go p.mergeProc(mirror, i, ch)
 	}
 }
 
